@@ -49,9 +49,9 @@ func (u uints) Swap(i, j int) {
 // 参数选项
 type Option func(c *consistent)
 
-func WithReplices(count int) Option {
+func WithReplicas(count int) Option {
 	return func(c *consistent) {
-		c.replices = count
+		c.replicas = count
 	}
 }
 
@@ -63,7 +63,7 @@ func WithHash(hash Hash) Option {
 
 type consistent struct {
 	// 副本数量
-	replices int
+	replicas int
 	// 所有的server 节点
 	nodes map[string]struct{}
 	// 节点所对应的server
@@ -87,7 +87,7 @@ func (c *consistent) hashKey(key string, i int) uint32 {
 }
 
 func (c *consistent) add(node string) {
-	for i := 0; i < c.replices; i++ {
+	for i := 0; i < c.replicas; i++ {
 		key := c.hashKey(node, i)
 		c.circle = append(c.circle, key)
 		c.servers[key] = node
@@ -124,14 +124,14 @@ func (c *consistent) Delete(node string) {
 	memo := make(map[uint32]struct{})
 
 	// 删除hash圆环中的值
-	for i := 0; i < c.replices; i++ {
+	for i := 0; i < c.replicas; i++ {
 		key := c.hashKey(node, i)
 		memo[key] = struct{}{}
 		delete(c.servers, key)
 	}
 
 	// 创建一个新的保存
-	newCircle := make(uints, 0, c.circle.Len()-c.replices)
+	newCircle := make(uints, 0, c.circle.Len()-c.replicas)
 	for i := 0; i < c.circle.Len(); i++ {
 		if _, ok := memo[c.circle[i]]; !ok {
 			newCircle = append(newCircle, c.circle[i])
@@ -157,7 +157,7 @@ func New(options ...Option) ConsistentHasher {
 		nodes:    make(map[string]struct{}),
 		servers:  make(map[uint32]string),
 		circle:   make([]uint32, 0),
-		replices: 20,
+		replicas: 20,
 		hash:     hash,
 	}
 	for _, option := range options {
