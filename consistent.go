@@ -6,6 +6,7 @@ import (
 	"hash/fnv"
 	"sort"
 	"strconv"
+	"sync"
 )
 
 // 将对应的key转换成索引
@@ -72,13 +73,16 @@ type consistent struct {
 	// 采用的hash算法
 	// hash 方法可能直接决定节点的分布情况
 	hash Hash
+	sync.RWMutex
 }
 
 func (c *consistent) Add(slot string) {
+	c.Lock()
+	defer c.Unlock()
 	c.add(slot)
 }
 
-func (c consistent) hashKey(key string, i int) uint32 {
+func (c *consistent) hashKey(key string, i int) uint32 {
 	return c.hash(strconv.Itoa(i) + key)
 }
 
@@ -96,6 +100,8 @@ func (c *consistent) add(node string) {
 
 // 获取到属于的server结点
 func (c *consistent) Get(name string) string {
+	c.RLock()
+	defer c.RUnlock()
 	// 首先将hash找到
 	key := c.hash(name)
 	// 然后在Hash圆环上找到对应的节点
@@ -108,6 +114,8 @@ func (c *consistent) Get(name string) string {
 
 // 删除一个节点
 func (c *consistent) Delete(node string) {
+	c.Lock()
+	defer c.Unlock()
 	// 删除节点
 	delete(c.nodes, node)
 
@@ -132,6 +140,18 @@ func (c *consistent) Delete(node string) {
 	c.circle = newCircle
 }
 
+// 获取到所有的节点
+func (c *consistent) Members() []string {
+	c.RLock()
+	defer c.RUnlock()
+	res := make([]string, 0, len(c.nodes))
+	for k := range c.nodes {
+		res = append(res, k)
+	}
+	return res
+}
+
+// 创建新的实例
 func New(options ...Option) ConsistentHasher {
 	c := &consistent{
 		nodes:    make(map[string]struct{}),
