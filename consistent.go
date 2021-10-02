@@ -9,7 +9,7 @@ import (
 	"sync"
 )
 
-// 将对应的key转换成索引
+// Hash 将对应的key转换成索引
 type Hash func(string) uint32
 
 // 默认的hash函数
@@ -21,6 +21,7 @@ func hash(name string) uint32 {
 	return f.Sum32()
 }
 
+// ConsistentHasher 为一致性哈希抽象接口
 type ConsistentHasher interface {
 	// 添加节点
 	Add(slot string)
@@ -46,15 +47,19 @@ func (u uints) Swap(i, j int) {
 	u[i], u[j] = u[j], u[i]
 }
 
-// 参数选项
+// Option 为参数选项，用来设置内部参数
 type Option func(c *consistent)
 
+
+// WithReplicas 自定义副本数量
 func WithReplicas(count int) Option {
 	return func(c *consistent) {
 		c.replicas = count
 	}
 }
 
+
+// WithHash 自定义哈希函数
 func WithHash(hash Hash) Option {
 	return func(c *consistent) {
 		c.hash = hash
@@ -76,6 +81,7 @@ type consistent struct {
 	sync.RWMutex
 }
 
+// Add 向哈希圆环中添加一个节点
 func (c *consistent) Add(slot string) {
 	c.Lock()
 	defer c.Unlock()
@@ -98,7 +104,7 @@ func (c *consistent) add(node string) {
 	sort.Sort(c.circle)
 }
 
-// 获取到属于的server结点
+// Get 获取到属于的server结点
 func (c *consistent) Get(name string) string {
 	c.RLock()
 	defer c.RUnlock()
@@ -112,7 +118,7 @@ func (c *consistent) Get(name string) string {
 	return c.servers[c.circle[i]]
 }
 
-// 删除一个节点
+// Delete 删除一个节点
 func (c *consistent) Delete(node string) {
 	c.Lock()
 	defer c.Unlock()
@@ -140,7 +146,7 @@ func (c *consistent) Delete(node string) {
 	c.circle = newCircle
 }
 
-// 获取到所有的节点
+// Members 获取到所有的节点
 func (c *consistent) Members() []string {
 	c.RLock()
 	defer c.RUnlock()
@@ -151,7 +157,7 @@ func (c *consistent) Members() []string {
 	return res
 }
 
-// 创建新的实例
+// New 创建新的一致性哈希实例
 func New(options ...Option) ConsistentHasher {
 	c := &consistent{
 		nodes:    make(map[string]struct{}),
